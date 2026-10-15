@@ -134,3 +134,52 @@ Hinweis: Diese IP ist unabhängig vom Standort des Nutzers. Das Skript läuft im
 Container, der eigene Laptop ist an der Verbindung zu Shopify nicht beteiligt.
 Die Zuordnung zu Anthropic stammt aus öffentlichen ASN-Daten, nicht aus einer
 Registry-Abfrage — `rdap.arin.net` ist in dieser Umgebung nicht freigegeben.
+
+## Orders und Revenue pro Produkt pro Tag
+
+Zwei Wege, beide lauffähig:
+
+```
+python3 scripts/orders_by_product_day.py --days 60 [--csv out.csv]
+python3 scripts/shopifyql_sales.py        --days 60 [--csv out.csv]
+```
+
+`orders_by_product_day.py` rechnet selbst aus `Order.lineItems`
+(`discountedTotalSet.shopMoney`), gruppiert nach Tag in der Shop-Zeitzone,
+Produkt und Währung. Test- und stornierte Bestellungen werden standardmässig
+ausgelassen (`--include-test`, `--include-cancelled`).
+
+`shopifyql_sales.py` holt Shopifys eigene Zahlen über `shopifyqlQuery`
+(`FROM sales ... GROUP BY day, product_title`). Funktioniert mit den aktuellen
+Scopes, gemessen am 2026-10-15.
+
+### Gemessene Ausgabe am 2026-10-15
+
+```
+shop timezone: Europe/Amsterdam   shop currency: EUR   since: 2026-08-16
+date        product     currency  orders  units  revenue
+2026-08-29  DermaFlex™  CAD       1       1      84.99
+
+day         product_title  total_sales  net_sales  gross_sales  discounts  sales_reversals  orders
+2026-08-29  DermaFlex™     52.65        52.65      52.65        0          0                1
+```
+
+### Warum die Beträge auseinandergehen
+
+Beides ist korrekt, es sind zwei verschiedene Grössen:
+
+- Die Bestellung `#1005` ist in **CAD** abgewickelt. `shopMoney` liefert hier
+  CAD 84.99, also den Betrag in der Bestellwährung.
+- Der Shop rechnet in **EUR**. ShopifyQL rechnet um und zeigt EUR 52.65.
+- Ausserdem sind die Definitionen verschieden: die eigene Rechnung summiert nur
+  Line-Items nach Rabatt, ohne Versand und Steuern. Shopifys `total_sales`
+  folgt Shopifys eigener Definition.
+
+Deshalb gruppiert `orders_by_product_day.py` nach Währung und mischt nie
+verschiedene Währungen in eine Summe.
+
+### Sichtbarer Zeitraum
+
+Mit `read_orders` sind nur Bestellungen der letzten 60 Tage sichtbar. Am
+2026-10-15 war das genau eine Bestellung (`#1005`, 2026-08-29). Ältere
+Bestellungen brauchen `read_all_orders`, das bei Shopify beantragt werden muss.
