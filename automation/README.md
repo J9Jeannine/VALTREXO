@@ -1,5 +1,12 @@
 # PnL VALLTREXO — Routine einrichten
 
+> **Stand 2026-10-17:** Jeannine trägt Valtrexo nicht in ein eigenes Sheet
+> ein, sondern als Block `COMPANY 2` im bestehenden Sheet **PnL**
+> (früher `PnL KIZORA`). Das laufende Verfahren steht in
+> [`ROUTINE_PNL_SHEET.md`](ROUTINE_PNL_SHEET.md). Diese Datei hier
+> beschreibt das eigene Sheet samt Apps-Script-Routine und bleibt als
+> Variante bestehen, falls Valtrexo doch getrennt laufen soll.
+
 Das Sheet liegt im selben Drive-Ordner wie `PnL KIZORA`:
 
 https://docs.google.com/spreadsheets/d/1PKX11uGNclncm_B-Ai-OJ-1C5K3sEIuANo9mjBRAq0E/edit
