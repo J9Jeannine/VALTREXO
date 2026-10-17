@@ -1,7 +1,14 @@
 # Routine: Valtrexo-Revenue ins Sheet "PnL"
 
-Verfahren für den täglichen Lauf. Die geplante Aufgabe verweist auf diese
-Datei, damit die Logik im Repo liegt und nicht im Prompt.
+Die geplante Aufgabe **PNL-VALTREXO** läuft täglich um 07:47 Amsterdamer
+Zeit in der Umgebung `valtrexo` und führt genau einen Befehl aus:
+
+```
+python3 scripts/pnl_sheet_sync.py --days 7
+```
+
+Dieses Dokument beschreibt, was das Skript tut und worauf zu achten ist.
+Die Zeilen- und Spaltenlogik steckt im Skript, nicht im Prompt.
 
 ## Ziel
 
@@ -58,13 +65,29 @@ dem Block stehen. Im Juli und August liegt der zweite Block ebenfalls auf
 
 ## Quelle der Zahlen
 
+`scripts/pnl_revenue.py` liefert pro Tag `revenue` und `refunds` aus
+`shopifyqlQuery`, in EUR und auf die Tagesgrenze der Shop-Zeitzone
+`Europe/Amsterdam`. Der Store ist Valltrexo, `dts96w-r1.myshopify.com`.
+Zum Nachprüfen von Hand:
+
 ```
 python3 scripts/pnl_revenue.py --since 2026-10-11 --json
 ```
 
-Liefert pro Tag `revenue` und `refunds` aus `shopifyqlQuery`, in EUR und auf
-die Tagesgrenze der Shop-Zeitzone `Europe/Amsterdam`. Der Store ist
-Valltrexo, `dts96w-r1.myshopify.com`.
+## Zugang zum Sheet
+
+Service Account `pnl-valtrexo@valtrexo.iam.gserviceaccount.com`, als
+Bearbeiter auf dem Sheet freigegeben. Der Schlüssel steht als
+`GOOGLE_SERVICE_ACCOUNT_JSON` in der Umgebung `valtrexo`; das Skript findet
+ihn auch unter anderen üblichen Namen, roh oder base64.
+
+Die Signatur des Tokens braucht `cryptography`. Dessen Debian-Paket ist in
+frischen Containern regelmäßig kaputt (`ModuleNotFoundError:
+_cffi_backend`), deshalb fällt das Skript selbst auf das
+openssl-Kommando zurück. **Im Routinelauf nie etwas nachinstallieren.** Die
+Zeile `cryptography nicht nutzbar (...), signiere mit openssl` ist normal.
+Beide Wege wurden gegen denselben Schlüssel geprüft und liefern
+byte-identische Signaturen.
 
 ## Fenster
 
