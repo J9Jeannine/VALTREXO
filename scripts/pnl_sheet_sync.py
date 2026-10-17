@@ -34,7 +34,9 @@ import calendar
 import datetime as dt
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -123,11 +125,45 @@ def _b64url(data):
     return base64.urlsafe_b64encode(data).rstrip(b"=")
 
 
+def _sign_rs256(private_key_pem, data):
+    """RS256-Signatur, mit openssl als Rueckfallebene.
+
+    Die Debian-Version von `cryptography` ist in frischen Containern
+    regelmaessig kaputt (ModuleNotFoundError: _cffi_backend). Statt im
+    Routinelauf ein pip install vorauszusetzen, faellt die Signatur dann auf
+    das openssl-Kommando zurueck, das immer da ist.
+    """
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+        return key.sign(data, padding.PKCS1v15(), hashes.SHA256())
+    except Exception as err:
+        print("cryptography nicht nutzbar ({}), signiere mit openssl".format(
+            type(err).__name__))
+
+    handle, path = tempfile.mkstemp(suffix=".pem")
+    try:
+        os.fchmod(handle, 0o600)
+        with os.fdopen(handle, "w") as key_file:
+            key_file.write(private_key_pem)
+        result = subprocess.run(
+            ["openssl", "dgst", "-sha256", "-sign", path],
+            input=data, capture_output=True)
+        if result.returncode != 0:
+            raise SheetError("openssl konnte nicht signieren: {}".format(
+                result.stderr.decode(errors="replace")[:300]))
+        return result.stdout
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def access_token(info):
     """Signiert ein JWT und tauscht es gegen einen Access Token."""
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
-
     now = int(time.time())
     header = {"alg": "RS256", "typ": "JWT"}
     claims = {
@@ -140,8 +176,7 @@ def access_token(info):
     signing_input = (_b64url(json.dumps(header).encode()) + b"." +
                      _b64url(json.dumps(claims).encode()))
 
-    key = serialization.load_pem_private_key(info["private_key"].encode(), password=None)
-    signature = key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+    signature = _sign_rs256(info["private_key"], signing_input)
     assertion = (signing_input + b"." + _b64url(signature)).decode()
 
     body = urllib.parse.urlencode({
