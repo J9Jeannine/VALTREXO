@@ -139,7 +139,14 @@ def _sign_rs256(private_key_pem, data):
 
         key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
         return key.sign(data, padding.PKCS1v15(), hashes.SHA256())
-    except Exception as err:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as err:
+        # BaseException, nicht Exception: ein kaputtes cryptography wirft
+        # pyo3_runtime.PanicException, und die erbt nicht von Exception.
+        # Gemessen am 17.10.2026 in einem frischen Container:
+        # ModuleNotFoundError: No module named '_cffi_backend', danach
+        # pyo3_runtime.PanicException: Python API call failed.
         print("cryptography nicht nutzbar ({}), signiere mit openssl".format(
             type(err).__name__))
 
