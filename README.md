@@ -183,3 +183,51 @@ verschiedene Währungen in eine Summe.
 Mit `read_orders` sind nur Bestellungen der letzten 60 Tage sichtbar. Am
 2026-10-15 war das genau eine Bestellung (`#1005`, 2026-08-29). Ältere
 Bestellungen brauchen `read_all_orders`, das bei Shopify beantragt werden muss.
+
+**`shopifyqlQuery` reicht weiter zurück.** Die Reports-Schnittstelle liefert
+auch Umsätze, die über die Order-API nicht mehr sichtbar sind. Gemessen am
+2026-10-17 über `FROM sales ... SINCE 2024-01-01`:
+
+| Tag | Orders | Revenue (EUR) | Produkt |
+|---|---|---|---|
+| 2026-06-27 | 1 | 79.99 | Dizzora™ |
+| 2026-07-01 | 1 | 36.97 | Hylon™ |
+| 2026-07-09 | 1 | 49.39 | Botiza™ |
+| 2026-08-08 | 1 | 49.53 | Orthix™ |
+| 2026-08-29 | 1 | 52.65 | DermaFlex™ |
+| **Summe** | **5** | **268.52** | |
+
+Seit 2026-09-01 bis 2026-10-17 kein Umsatz. Wer die Historie braucht, nimmt
+also `shopifyql_sales.py` oder `pnl_revenue.py`, nicht die Order-API.
+
+## PnL-Sheet und Routine
+
+Sheet, im selben Drive-Ordner wie `PnL KIZORA`:
+
+https://docs.google.com/spreadsheets/d/1PKX11uGNclncm_B-Ai-OJ-1C5K3sEIuANo9mjBRAq0E/edit
+
+Layout wie `PnL KIZORA`: ein Tab pro Monat, eine Zeile pro Tag, dazu ein Tab
+`Settings` mit den Raten. Die Routine trägt jeden Morgen Revenue und Refunds
+aus Shopify ein, den Ad-Spend aus Meta, sobald dafür ein Token gesetzt ist.
+
+Die Routine läuft als Apps Script **im Sheet**, nicht in dieser Umgebung:
+zum Schreiben in ein Google Sheet fehlen hier ein Service-Account-Key und die
+Freigabe von `sheets.googleapis.com`. Einrichtung und Grenzen stehen in
+[`automation/README.md`](automation/README.md), der Code in
+[`automation/pnl_valtrexo.gs`](automation/pnl_valtrexo.gs).
+
+### Skripte
+
+```
+python3 scripts/pnl_revenue.py --since 2026-06-01        # Tagesumsätze, Tabelle
+python3 scripts/pnl_revenue.py --day 2026-10-17 --json   # ein Tag als JSON
+python3 scripts/build_pnl_workbook.py --out PnL.xlsx --seed seed.json
+```
+
+`pnl_revenue.py` ist die gemeinsame Quelle: Orders, Revenue, Refunds,
+Gross Sales und Discounts pro Tag aus `shopifyqlQuery`, in Shop-Währung EUR
+und mit der Tagesgrenze der Shop-Zeitzone. Es ist auch das Werkzeug, um
+gegenzuprüfen, was im Sheet steht.
+
+`build_pnl_workbook.py` baut dieselbe Mappe als `.xlsx` zum Hochladen, als
+Fallback ohne Apps Script.
